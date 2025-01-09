@@ -3,8 +3,8 @@ import requests
 # Configuration
 RADARR_URL = "http://your-radarr-url"
 RADARR_API_KEY = "your-radarr-api-key"
-TRAKT_CLIENT_ID = "d76bbb7cedd07a34b257e5406535f345964369c50637543398775495e97434b6"
-TRAKT_CLIENT_SECRET = "164e836833bfc2418978ce7e229f72407b3808a4d92444054b08f7526d148057"
+TRAKT_CLIENT_ID = "your-trakt-client-id"
+TRAKT_CLIENT_SECRET = "your-trakt-client-secret"
 TRAKT_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
 
 # Function to get Trakt access token
@@ -50,7 +50,7 @@ trakt_headers = get_trakt_headers(ACCESS_TOKEN)
 
 # List of Trakt lists with tags
 TRAKT_LISTS = [
-    {"url": "https://api.trakt.tv/users/linaspurinis/lists/top-watched-movies-of-the-week-60/items", "tag_name": "topmoviesweek", "expired_tag_name": "delete"},
+    {"url": "TRAKTLINKHERE", "tag_name": "topmoviesweek", "expired_tag_name": None},
 ]
 
 # Function to get or create a Radarr tag
