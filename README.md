@@ -14,7 +14,7 @@ The lists used must match API format. The **EASIEST** way to do this is to press
       The link when shared: https://trakt.tv/lists/6703173
       The link to add to the .py file: https://api.trakt.tv/lists/6703173/items
 
-      Enter the final link in your browser to see if it worked, a wall of text is a good thing! This has only been tested on public lists.
+  Enter the final link in your browser to see if it worked, a wall of text is a good thing! This has only been tested on public lists.
 
 The Trakt Lists function works like this:
 {"url": "https://api.trakt.tv/lists/6703173/items", "tag_name": "topmoviesweek", "expired_tag_name": "delete"},
