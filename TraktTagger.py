@@ -1,11 +1,11 @@
 import requests
 
 # Configuration
-RADARR_URL = "http://your-radarr-url"
-RADARR_API_KEY = "your-radarr-api-key"
-TRAKT_CLIENT_ID = "your-trakt-client-id"
-TRAKT_CLIENT_SECRET = "your-trakt-client-secret"
-TRAKT_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
+RADARR_URL = "here"
+RADARR_API_KEY = "here"
+TRAKT_CLIENT_ID = "here"
+TRAKT_CLIENT_SECRET = "here"
+TRAKT_REDIRECT_URI = "here"
 
 # Function to get Trakt access token
 def get_trakt_access_token():
@@ -50,7 +50,8 @@ trakt_headers = get_trakt_headers(ACCESS_TOKEN)
 
 # List of Trakt lists with tags
 TRAKT_LISTS = [
-    {"url": "TRAKTLINKHERE", "tag_name": "topmoviesweek", "expired_tag_name": None},
+    {"url": "https://api.trakt.tv/lists/6703173/items", "tag_name": "topmoviesweek", "expired_tag_name": "expiredfromlists"},
+    {"url": "https://api.trakt.tv/lists/2142753/items", "tag_name": "imdb250", "expired_tag_name": "expiredfromlists"},
 ]
 
 # Function to get or create a Radarr tag
@@ -118,73 +119,76 @@ for trakt_list in TRAKT_LISTS:
 
     tagged_movies = get_movies_by_tag(tag_id)
 
-    trakt_tmdb_ids = {
-        item['movie']['ids']['tmdb'] for item in trakt_items if item['type'] == 'movie' and 'tmdb' in item['movie']['ids']
+    trakt_imdb_ids = {
+        item['movie']['ids']['imdb'] for item in trakt_items if item['type'] == 'movie' and 'imdb' in item['movie']['ids']
     }
 
     for movie in tagged_movies:
-        tmdb_id = movie['tmdbId']
-        radarr_movie_id = movie['id']
+        imdb_id = movie['imdbId']
 
-        if tmdb_id not in trakt_tmdb_ids:
+        if imdb_id not in trakt_imdb_ids:
             print(f"Movie '{movie['title']}' ({movie['year']}) is no longer in the Trakt list.")
             movie['tags'].remove(tag_id)
             if expired_tag_id:
                 movie['tags'].append(expired_tag_id)
+        else:
+            if expired_tag_id and expired_tag_id in movie['tags']:
+                movie['tags'].remove(expired_tag_id)
+
+        radarr_movie_url = f"{RADARR_URL}/api/v3/movie/{movie['id']}"
+        try:
+            update_response = requests.put(radarr_movie_url, json=movie, headers={"X-Api-Key": RADARR_API_KEY})
+            update_response.raise_for_status()
+            print(f"Updated tags for '{movie['title']}' ({movie['year']}).")
+        except requests.exceptions.RequestException as e:
+            print(f"Error updating Radarr tags for '{movie['title']}' ({movie['year']}): {e}")
+
+# ...existing code...
+
+for item in trakt_items:
+    if item['type'] == 'movie':
+        movie = item['movie']
+        title = movie['title']
+        year = movie['year']
+        imdb_id = movie['ids'].get('imdb')
+
+        if not imdb_id:
+            print(f"Skipping movie '{title}' ({year}) - IMDb ID not available.")
+            continue
+
+        radarr_search_url = f"{RADARR_URL}/api/v3/movie/lookup?term=imdb:{imdb_id}"
+        try:
+            radarr_search_response = requests.get(radarr_search_url, headers={"X-Api-Key": RADARR_API_KEY})
+            radarr_search_response.raise_for_status()
+            radarr_movies = radarr_search_response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error searching Radarr for '{title}' ({year}): {e}")
+            continue
+
+        if radarr_movies:
+            radarr_movie = radarr_movies[0]
+            radarr_movie_id = radarr_movie.get('id')
+
+            # Skip movies that are not downloaded or are excluded
+            if radarr_movie_id is None or radarr_movie.get('isExcluded', False) or radarr_movie.get('movieFileId') == 0:
+                print(f"Skipping movie '{title}' ({year}) as it is not downloaded or is excluded in Radarr.")
+                continue
+
+            tags = radarr_movie.get('tags', [])
+            if tag_id not in tags:
+                tags.append(tag_id)
+            if expired_tag_id and expired_tag_id in tags:
+                tags.remove(expired_tag_id)
+            radarr_movie['tags'] = tags
 
             radarr_movie_url = f"{RADARR_URL}/api/v3/movie/{radarr_movie_id}"
             try:
-                update_response = requests.put(radarr_movie_url, json=movie, headers={"X-Api-Key": RADARR_API_KEY})
+                update_response = requests.put(radarr_movie_url, json=radarr_movie, headers={"X-Api-Key": RADARR_API_KEY})
                 update_response.raise_for_status()
-                print(f"Updated tags for '{movie['title']}' ({movie['year']}).")
+                print(f"Updated tags for '{title}' ({year}) in list {trakt_url}.")
             except requests.exceptions.RequestException as e:
-                print(f"Error updating Radarr tags for '{movie['title']}' ({movie['year']}): {e}")
-
-    for item in trakt_items:
-        if item['type'] == 'movie':
-            movie = item['movie']
-            title = movie['title']
-            year = movie['year']
-            tmdb_id = movie['ids'].get('tmdb')
-
-            if not tmdb_id:
-                print(f"Skipping movie '{title}' ({year}) - TMDb ID not available.")
-                continue
-
-            radarr_search_url = f"{RADARR_URL}/api/v3/movie/lookup?term=tmdb:{tmdb_id}"
-            try:
-                radarr_search_response = requests.get(radarr_search_url, headers={"X-Api-Key": RADARR_API_KEY})
-                radarr_search_response.raise_for_status()
-                radarr_movies = radarr_search_response.json()
-            except requests.exceptions.RequestException as e:
-                print(f"Error searching Radarr for '{title}' ({year}): {e}")
-                continue
-
-            if radarr_movies:
-                radarr_movie = radarr_movies[0]
-                radarr_movie_id = radarr_movie['id']
-
-                radarr_movie_url = f"{RADARR_URL}/api/v3/movie/{radarr_movie_id}"
-                try:
-                    radarr_movie_response = requests.get(radarr_movie_url, headers={"X-Api-Key": RADARR_API_KEY})
-                    radarr_movie_response.raise_for_status()
-                    radarr_movie_data = radarr_movie_response.json()
-                except requests.exceptions.RequestException as e:
-                    print(f"Error fetching Radarr movie details for '{title}' ({year}): {e}")
-                    continue
-
-                tags = radarr_movie_data.get('tags', [])
-                if tag_id not in tags:
-                    tags.append(tag_id)
-                    radarr_movie_data['tags'] = tags
-
-                    try:
-                        update_response = requests.put(radarr_movie_url, json=radarr_movie_data, headers={"X-Api-Key": RADARR_API_KEY})
-                        update_response.raise_for_status()
-                        print(f"Updated tags for '{title}' ({year}) in list {trakt_url}.")
-                    except requests.exceptions.RequestException as e:
-                        print(f"Error updating Radarr tags for '{title}' ({year}): {e}")
-            else:
-                print(f"Movie '{title}' ({year}) not found in Radarr.")
+                print(f"Error updating Radarr tags for '{title}' ({year}): {e}")
         else:
-            print(f"Skipping non-movie item of type '{item['type']}' in list {trakt_url}.")
+            print(f"Movie '{title}' ({year}) not found in Radarr. Full response: {radarr_movies}")
+    else:
+        print(f"Skipping non-movie item of type '{item['type']}' in list {trakt_url}.")
